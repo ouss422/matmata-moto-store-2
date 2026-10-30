@@ -323,8 +323,10 @@ function olToOrders(){const l=OL();if(!l.length)return alert('La liste est vide.
  l.forEach(x=>{const p=P(x.code);if(p)S.orders.push({id:++id,d:now(),code:x.code,name:p.name,sup:x.sup,qty:x.qty,price:x.price||0,st:'Commandée'})});
  S.olist=[];save();if(location.hash==='#cmd')go();else location.hash='#cmd'}
 function olPrint(){const L=olSorted();if(!L.length)return alert('La liste est vide.');
- printDoc(`<h3>Liste de commande</h3><p>Date : ${today()}</p><table><tr><th>Désignation article</th><th>Prix unitaire (DT)</th><th>Quantité</th><th>Fournisseur</th></tr>
- ${rows(L,x=>`<tr><td>${esc(x.n)}</td><td>${f(x.p,3)}</td><td>${x.q}</td><td>${esc(x.s)}</td></tr>`)}</table>`)}
+ const tot=L.reduce((a,x)=>a+x.p*x.q,0);
+ printDoc(`<h3>Liste de commande</h3><p>Date : ${today()}</p><table><tr><th>Désignation article</th><th>Prix unitaire (DT)</th><th>Quantité</th><th>Fournisseur</th><th>Total (DT)</th></tr>
+ ${rows(L,x=>`<tr><td>${esc(x.n)}</td><td>${f(x.p,3)}</td><td>${x.q}</td><td>${esc(x.s)}</td><td>${f(x.p*x.q,3)}</td></tr>`)}
+ <tr><td colspan="4" style="text-align:right"><b>Total estimé</b></td><td><b>${f(tot,3)}</b></td></tr></table>`)}
 
 /* ---------- Comparaison de prix ---------- */
 R.cmp=()=>`<h2>Comparaison de prix</h2><div class="c"><input class="w" id="cq" placeholder="Rechercher un produit…" style="width:100%"><div class="hit" id="ch" style="display:none"></div></div><div id="cr"></div>`;
