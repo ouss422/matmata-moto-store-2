@@ -44,7 +44,7 @@ esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"
 today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')},
 now=()=>today()+'T'+new Date().toTimeString().slice(0,5);
 let S,cart=[],pg={},KEY='matmata_v3';
-const PAGES=[['dash','📊 Tableau de bord'],['prod','📦 Produits'],['vente','🛒 Ventes'],['rap','📈 Rapports'],['alert','⚠️ Alertes'],['cmd','🚚 Commandes'],['cmp','⚖️ Comparaison prix'],['four','🏭 Fournisseurs'],['cli','👤 Clients'],['data','💾 Données']];
+const PAGES=[['dash','📊 Tableau de bord'],['prod','📦 Produits'],['vente','🛒 Ventes'],['hv','🧾 Historique ventes'],['rap','📈 Rapports'],['alert','⚠️ Alertes'],['cmd','🚚 Commandes'],['cmp','⚖️ Comparaison prix'],['four','🏭 Fournisseurs'],['cli','👤 Clients'],['data','💾 Données']];
 const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
 const P=c=>S.products.find(p=>p.code===c);
 const val=p=>p.stock*(p.last||p.buy);
@@ -62,7 +62,7 @@ async function init(){
   S.products.forEach(p=>{if(p.sup)S.prices.push({code:p.code,sup:p.sup,price:p.last||p.buy,d:'import'})});
   save();
  }
- $('#nav').innerHTML='<h1>🏍️ Matmata Moto Store</h1><div style="margin:-8px 8px 10px;font-size:11px;color:var(--mu)">version 5 · 30/10/2026</div>'+PAGES.map(([k,t])=>`<a href="#${k}" data-k="${k}">${t}</a>`).join('');
+ $('#nav').innerHTML='<h1>🏍️ Matmata Moto Store</h1><div style="margin:-8px 8px 10px;font-size:11px;color:var(--mu)">version 6 · 01/11/2026</div>'+PAGES.map(([k,t])=>`<a href="#${k}" data-k="${k}">${t}</a>`).join('');
  addEventListener('hashchange',route);route();
 }
 function route(){
@@ -230,6 +230,28 @@ function valid(){
  cart=[];save();go()}
 function cancelS(id){if(!confirm('Annuler la vente '+id+' ? Le stock sera restitué.'))return;
  S.sales.filter(s=>s.id===id).forEach(s=>{const p=P(s.code);if(p){p.stock+=s.qty;mv(s.code,'Annulation vente',s.qty,id)}});S.sales=S.sales.filter(s=>s.id!==id);save();go()}
+
+/* ---------- Historique des ventes / retours clients ---------- */
+R.hv=()=>{pg.hv=pg.hv||{q:'',a:'',b:'',n:100};const g=pg.hv;return`<h2>Historique des ventes</h2><div class="bar"><input type="search" id="hq" class="w" placeholder="Rechercher (article, code, client, n° vente)…" value="${esc(g.q)}">
+ Du <input type="date" id="ha" value="${g.a}"> au <input type="date" id="hb" value="${g.b}"><button onclick="pg.hv={q:'',a:'',b:'',n:100};go()">Réinitialiser</button></div><div class="c tw" id="hvt"></div><div class="c tw" id="hrt"></div>`};
+A.hv=()=>{const g=pg.hv;$('#hq').oninput=e=>{g.q=e.target.value;g.n=100;hvr()};$('#ha').onchange=e=>{g.a=e.target.value;g.n=100;hvr()};$('#hb').onchange=e=>{g.b=e.target.value;g.n=100;hvr()};hvr()};
+function hvr(){const g=pg.hv,q=g.q.toLowerCase().trim(),inR=d=>(!g.a||d.slice(0,10)>=g.a)&&(!g.b||d.slice(0,10)<=g.b);
+ const L=S.sales.map((s,i)=>({s,i})).filter(({s})=>inR(s.d)&&(!q||[s.name,s.code,s.client,s.id].some(v=>String(v??'').toLowerCase().includes(q)))).sort((a,b)=>b.s.d.localeCompare(a.s.d)||b.i-a.i);
+ const tot=L.reduce((a,{s})=>a+s.total,0);
+ $('#hvt').innerHTML=`<small>${L.length} ligne(s) de vente · total ${f(tot)} DT</small><table><tr><th>N° vente</th><th>Date</th><th>Article</th><th>Client</th><th class="n">Prix unit.</th><th class="n">Qté</th><th class="n">Total (DT)</th><th class="n">Profit (DT)</th><th></th></tr>
+ ${rows(L.slice(0,g.n),({s,i})=>`<tr><td>${esc(s.id)}</td><td>${s.d.replace('T',' ')}</td><td>${esc(s.name)}</td><td>${esc(s.client)}</td><td class="n">${f(s.price,3)}</td><td class="n">${s.qty}</td><td class="n">${f(s.total)}</td><td class="n">${f(s.profit)}</td><td><button class="s d" onclick="retS(${i})">↩ Annuler / Retour</button></td></tr>`)||'<tr><td colspan=9>Aucune vente</td></tr>'}</table>
+ ${L.length>g.n?`<p><button onclick="pg.hv.n+=100;hvr()">Afficher plus (${L.length-g.n})</button></p>`:''}`;
+ const Rt=(S.returns||[]).filter(r=>inR(r.d)&&(!q||[r.name,r.code,r.client,r.id].some(v=>String(v??'').toLowerCase().includes(q)))).slice().reverse();
+ $('#hrt').innerHTML=Rt.length?`<h3 style="margin-top:0">↩ Retours clients (${Rt.length})</h3><table><tr><th>Date du retour</th><th>N° vente</th><th>Article</th><th>Client</th><th class="n">Qté</th><th class="n">Montant déduit (DT)</th><th class="n">Profit déduit (DT)</th></tr>
+ ${rows(Rt,r=>`<tr><td>${r.d.replace('T',' ')}</td><td>${esc(r.id)}</td><td>${esc(r.name)}</td><td>${esc(r.client)}</td><td class="n">${r.qty}</td><td class="n">${f(r.amount)}</td><td class="n">${f(r.profit)}</td></tr>`)}</table>`:''}
+function retS(i){const s=S.sales[i];if(!s)return;let q=s.qty;
+ if(s.qty>1){const v=prompt(`Quantité retournée par le client (1 à ${s.qty}) :\n${s.name}`,s.qty);if(v===null)return;q=Math.floor(+String(v).replace(',','.'));if(!(q>=1&&q<=s.qty))return alert('Quantité invalide (entre 1 et '+s.qty+').')}
+ const amount=s.price*q,profit=s.qty?s.profit/s.qty*q:0;
+ if(!confirm(`Retour de ${q} × ${s.name} (vente ${s.id}) ?\n\n• +${q} en stock\n• −${f(amount)} DT du chiffre d'affaires\n• −${f(profit)} DT du profit`))return;
+ const p=P(s.code);if(p){p.stock+=q;mv(s.code,'Retour client',q,s.id+' — '+s.client)}
+ (S.returns=S.returns||[]).push({d:now(),id:s.id,code:s.code,name:s.name,client:s.client,qty:q,amount,profit});
+ if(q>=s.qty)S.sales.splice(i,1);else{s.qty-=q;s.total=Math.round((s.total-amount)*1000)/1000;s.profit=Math.round((s.profit-profit)*1000)/1000}
+ save();hvr()}
 
 /* ---------- Rapports ---------- */
 R.rap=()=>{pg.rap=pg.rap||{m:'today',a:today(),b:today()};const g=pg.rap;
